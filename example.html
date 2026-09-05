@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ws-node 客户端示例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #1a1a2e;
+        }
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-dot.online { background: #22c55e; }
+        .status-dot.offline { background: #ef4444; }
+        .status-dot.connecting { background: #f59e0b; animation: blink 1s infinite; }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .status-text { font-size: 14px; color: #374151; }
+        .client-id {
+            font-family: monospace;
+            font-size: 12px;
+            color: #6b7280;
+            background: #e5e7eb;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+        .section {
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        .input-group {
+            display: flex;
+            gap: 8px;
+        }
+        .input-group input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+        .input-group input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+        .btn-success {
+            background: #22c55e;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #16a34a;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #d1d5db;
+            color: #374151;
+        }
+        .btn-outline:hover {
+            background: #f3f4f6;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .message-area {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fafafa;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .message-area .msg {
+            padding: 4px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .message-area .msg .time {
+            color: #9ca3af;
+            font-size: 11px;
+            margin-right: 8px;
+        }
+        .message-area .msg .from {
+            font-weight: 600;
+            color: #6366f1;
+        }
+        .message-area .msg .from.me {
+            color: #22c55e;
+        }
+        .message-area .msg .content {
+            color: #1f2937;
+        }
+        .message-area .msg.system {
+            color: #6b7280;
+            font-style: italic;
+        }
+        .message-area .msg.error {
+            color: #ef4444;
+        }
+        .online-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 8px 0;
+        }
+        .online-list .tag {
+            font-family: monospace;
+            font-size: 11px;
+            background: #e5e7eb;
+            padding: 2px 10px;
+            border-radius: 12px;
+            color: #374151;
+        }
+        .online-list .tag.me {
+            background: #6366f1;
+            color: white;
+        }
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .row .btn {
+            flex: 1;
+            min-width: 80px;
+        }
+        .mt-8 { margin-top: 8px; }
+        .mb-8 { margin-bottom: 8px; }
+        .text-sm { font-size: 13px; }
+        .text-gray { color: #6b7280; }
+        .flex { display: flex; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .gap-8 { gap: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 ws-node 客户端</h1>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <span class="status-dot offline" id="statusDot"></span>
+            <span class="status-text" id="statusText">未连接</span>
+            <span class="client-id" id="clientIdDisplay">ID: 未生成</span>
+        </div>
+
+        <!-- 连接控制 -->
+        <div class="section">
+            <div class="section-title">🔌 连接设置</div>
+            <div class="input-group">
+                <input type="text" id="nodeUrl" value="ws://localhost:8080" placeholder="节点地址，如: ws://localhost:8080">
+                <button class="btn btn-success" id="connectBtn">连接</button>
+                <button class="btn btn-danger" id="disconnectBtn" disabled>断开</button>
+            </div>
+            <div class="flex gap-8 mt-8">
+                <button class="btn btn-outline" id="genIdBtn">🔄 生成新ID</button>
+                <input type="text" id="customId" placeholder="或输入60位ID" style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                <button class="btn btn-primary" id="registerBtn" disabled>注册</button>
+            </div>
+        </div>
+
+        <!-- 消息操作 -->
+        <div class="section">
+            <div class="section-title">💬 发送消息</div>
+            <div class="input-group">
+                <input type="text" id="targetId" placeholder="目标ID (60位)" style="flex:0.6;">
+                <input type="text" id="messageInput" placeholder="输入消息..." style="flex:1;">
+                <button class="btn btn-primary" id="sendBtn" disabled>发送</button>
+            </div>
+            <div class="flex gap-8 mt-8">
+                <button class="btn btn-outline" id="broadcastBtn" disabled>📢 广播</button>
+                <button class="btn btn-outline" id="onlineBtn" disabled>👥 在线列表</button>
+                <span class="text-sm text-gray" style="line-height:32px;">在线: <span id="onlineCount">0</span> 人</span>
+            </div>
+        </div>
+
+        <!-- 消息区域 -->
+        <div class="section">
+            <div class="flex-between">
+                <span class="section-title">📨 消息记录</span>
+                <button class="btn btn-outline" style="padding:2px 12px;font-size:12px;" id="clearMsgBtn">清空</button>
+            </div>
+            <div class="message-area" id="messageArea">
+                <div class="msg system">💡 连接后自动注册，即可开始聊天</div>
+            </div>
+        </div>
+
+        <!-- 在线列表 -->
+        <div class="section">
+            <div class="section-title">👥 在线用户</div>
+            <div class="online-list" id="onlineList">
+                <span class="text-sm text-gray">暂无</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  ws-node 客户端 JavaScript
+        // ============================================================
+
+        // ---------- DOM 引用 ----------
+        const $ = id => document.getElementById(id);
+        const statusDot = $('statusDot');
+        const statusText = $('statusText');
+        const clientIdDisplay = $('clientIdDisplay');
+        const nodeUrl = $('nodeUrl');
+        const connectBtn = $('connectBtn');
+        const disconnectBtn = $('disconnectBtn');
+        const genIdBtn = $('genIdBtn');
+        const customId = $('customId');
+        const registerBtn = $('registerBtn');
+        const targetId = $('targetId');
+        const messageInput = $('messageInput');
+        const sendBtn = $('sendBtn');
+        const broadcastBtn = $('broadcastBtn');
+        const onlineBtn = $('onlineBtn');
+        const onlineCount = $('onlineCount');
+        const messageArea = $('messageArea');
+        const onlineList = $('onlineList');
+        const clearMsgBtn = $('clearMsgBtn');
+
+        // ---------- 状态 ----------
+        let ws = null;
+        let myId = null;
+        let isRegistered = false;
+
+        // ---------- 工具函数 ----------
+        function generateId() {
+            return Math.random().toString(36).substring(2) +
+                   Math.random().toString(36).substring(2) +
+                   Math.random().toString(36).substring(2);
+        }
+
+        function formatTime(ts) {
+            const d = new Date(ts);
+            return d.toLocaleTimeString('zh-CN', { hour12: false });
+        }
+
+        function addMessage(type, from, content, time, isMe) {
+            const div = document.createElement('div');
+            div.className = 'msg';
+            const timeStr = time ? formatTime(time) : formatTime(Date.now());
+            let html = `<span class="time">${timeStr}</span>`;
+            
+            if (type === 'system') {
+                div.className = 'msg system';
+                html += content;
+            } else if (type === 'error') {
+                div.className = 'msg error';
+                html += `❌ ${content}`;
+            } else if (type === 'message') {
+                const fromClass = isMe ? 'me' : '';
+                html += `<span class="from ${fromClass}">${from}</span> → <span class="content">${content}</span>`;
+            } else if (type === 'broadcast') {
+                html += `📢 <span class="from">${from}</span> 广播: <span class="content">${content}</span>`;
+            } else if (type === 'offline') {
+                html += `💾 离线消息来自 <span class="from">${from}</span>: <span class="content">${content}</span>`;
+            } else {
+                html += content;
+            }
+            
+            div.innerHTML = html;
+            messageArea.appendChild(div);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+
+        function updateOnlineList(clients) {
+            onlineList.innerHTML = '';
+            if (!clients || clients.length === 0) {
+                onlineList.innerHTML = '<span class="text-sm text-gray">暂无</span>';
+                return;
+            }
+            clients.forEach(id => {
+                const tag = document.createElement('span');
+                tag.className = 'tag' + (id === myId ? ' me' : '');
+                tag.textContent = id.substring(0, 8) + '...' + id.substring(52);
+                tag.title = id;
+                onlineList.appendChild(tag);
+            });
+            onlineCount.textContent = clients.length;
+        }
+
+        function setStatus(status, text) {
+            statusDot.className = 'status-dot ' + status;
+            statusText.textContent = text;
+        }
+
+        function updateUI() {
+            const connected = ws && ws.readyState === WebSocket.OPEN;
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            registerBtn.disabled = !connected || isRegistered;
+            sendBtn.disabled = !connected || !isRegistered;
+            broadcastBtn.disabled = !connected || !isRegistered;
+            onlineBtn.disabled = !connected || !isRegistered;
+        }
+
+        // ---------- WebSocket 连接 ----------
+        function connect() {
+            const url = nodeUrl.value.trim();
+            if (!url) {
+                addMessage('error', '', '请输入节点地址');
+                return;
+            }
+
+            try {
+                ws = new WebSocket(url);
+                setStatus('connecting', '连接中...');
+                updateUI();
+
+                ws.onopen = () => {
+                    setStatus('online', '已连接');
+                    addMessage('system', '', '✅ 连接成功，请注册');
+                    updateUI();
+                    
+                    // 如果有 ID 自动注册
+                    if (myId) {
+                        register();
+                    }
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        handleMessage(msg);
+                    } catch (e) {
+                        addMessage('error', '', '解析消息失败: ' + event.data);
+                    }
+                };
+
+                ws.onclose = () => {
+                    setStatus('offline', '已断开');
+                    isRegistered = false;
+                    addMessage('system', '', '🔌 连接已断开');
+                    updateUI();
+                };
+
+                ws.onerror = (err) => {
+                    addMessage('error', '', '连接错误: ' + err.message);
+                };
+
+            } catch (e) {
+                addMessage('error', '', '连接失败: ' + e.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            isRegistered = false;
+            setStatus('offline', '已断开');
+            updateUI();
+        }
+
+        // ---------- 注册 ----------
+        function register() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('error', '', '请先连接');
+                return;
+            }
+
+            const id = customId.value.trim() || myId;
+            if (!id || id.length !== 60) {
+                addMessage('error', '', 'ID 必须是60位字符串');
+                return;
+            }
+
+            myId = id;
+            clientIdDisplay.textContent = 'ID: ' + id.substring(0, 8) + '...' + id.substring(52);
+
+            ws.send(JSON.stringify({
+                type: 'register',
+                id: id
+            }));
+        }
+
+        // ---------- 发送消息 ----------
+        function sendMessage() {
+            if (!ws || !isRegistered) {
+                addMessage('error', '', '请先连接并注册');
+                return;
+            }
+            const target = targetId.value.trim();
+            const content = messageInput.value.trim();
+            if (!target) {
+                addMessage('error', '', '请输入目标ID');
+                return;
+            }
+            if (!content) {
+                addMessage('error', '', '请输入消息内容');
+                return;
+            }
+
+            ws.send(JSON.stringify({
+                type: 'send',
+                targetId: target,
+                content: content
+            }));
+
+            // 显示自己发送的消息（暂存，等服务器确认）
+            addMessage('message', myId + ' (我)', content, Date.now(), true);
+            messageInput.value = '';
+        }
+
+        function broadcast() {
+            if (!ws || !isRegistered) {
+                addMessage('error', '', '请先连接并注册');
+                return;
+            }
+            const content = messageInput.value.trim();
+            if (!content) {
+                addMessage('error', '', '请输入要广播的内容');
+                return;
+            }
+
+            ws.send(JSON.stringify({
+                type: 'broadcast',
+                content: content
+            }));
+
+            addMessage('system', '', `📢 你广播了: ${content}`);
+            messageInput.value = '';
+        }
+
+        function getOnline() {
+            if (!ws || !isRegistered) {
+                addMessage('error', '', '请先连接并注册');
+                return;
+            }
+            ws.send(JSON.stringify({
+                type: 'get_online'
+            }));
+        }
+
+        // ---------- 消息处理 ----------
+        function handleMessage(msg) {
+            console.log('收到消息:', msg);
+
+            switch (msg.type) {
+                case 'registered':
+                    isRegistered = true;
+                    myId = msg.clientId;
+                    clientIdDisplay.textContent = 'ID: ' + myId.substring(0, 8) + '...' + myId.substring(52);
+                    addMessage('system', '', `✅ 注册成功！在线 ${msg.onlineCount} 人`);
+                    updateUI();
+                    break;
+
+                case 'message':
+                    addMessage('message', msg.from, msg.content, msg.time);
+                    break;
+
+                case 'broadcast':
+                    addMessage('broadcast', msg.from, msg.content, msg.time);
+                    break;
+
+                case 'offline_message':
+                    addMessage('offline', msg.from, msg.content, msg.time);
+                    break;
+
+                case 'online_list':
+                    updateOnlineList(msg.clients);
+                    addMessage('system', '', `👥 在线 ${msg.count} 人`);
+                    break;
+
+                case 'sent':
+                    if (msg.status === 'delivered') {
+                        addMessage('system', '', `✅ 已送达 ${msg.targetId}`);
+                    } else if (msg.status === 'offline_stored') {
+                        addMessage('system', '', `💾 已存储为离线消息 (${msg.targetId})`);
+                    } else {
+                        addMessage('system', '', `📨 ${msg.status}`);
+                    }
+                    break;
+
+                case 'ping':
+                    // 服务器心跳请求，回复 pong
+                    ws.send(JSON.stringify({ type: 'pong' }));
+                    break;
+
+                case 'error':
+                    addMessage('error', '', msg.message);
+                    break;
+
+                default:
+                    addMessage('system', '', `📦 未知消息类型: ${msg.type}`);
+            }
+        }
+
+        // ---------- 事件绑定 ----------
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        registerBtn.addEventListener('click', register);
+
+        genIdBtn.addEventListener('click', () => {
+            const newId = generateId();
+            customId.value = newId;
+            myId = newId;
+            clientIdDisplay.textContent = 'ID: ' + newId.substring(0, 8) + '...' + newId.substring(52);
+            addMessage('system', '', `🆕 生成新ID: ${newId}`);
+            
+            // 如果已连接，自动注册
+            if (ws && ws.readyState === WebSocket.OPEN && !isRegistered) {
+                register();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+        broadcastBtn.addEventListener('click', broadcast);
+        onlineBtn.addEventListener('click', getOnline);
+
+        clearMsgBtn.addEventListener('click', () => {
+            messageArea.innerHTML = '';
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    broadcast();
+                } else {
+                    sendMessage();
+                }
+            }
+        });
+
+        // ---------- 初始化 ----------
+        // 自动生成一个 ID
+        const initId = generateId();
+        customId.value = initId;
+        myId = initId;
+        clientIdDisplay.textContent = 'ID: ' + initId.substring(0, 8) + '...' + initId.substring(52);
+        updateUI();
+        addMessage('system', '', '💡 点击"连接"按钮连接服务器，然后点击"注册"');
+
+        console.log('🌐 ws-node 客户端已加载');
+        console.log('📌 你的ID:', initId);
+    </script>
+</body>
+</html>
