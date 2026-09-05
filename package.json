@@ -1,0 +1,21 @@
+{
+  "name": "ws-node",
+  "version": "1.0.0",
+  "description": "去中心化 WebSocket 公共节点网络",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "websocket",
+    "p2p",
+    "decentralized",
+    "realtime"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
